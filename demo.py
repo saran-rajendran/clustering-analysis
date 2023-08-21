@@ -23,9 +23,11 @@ if csv_data is not None:
     stripping_df = pd.read_csv(csv_data, sep=";")
     # cols = stripping_df.select_dtypes(include=["float64"]).columns
     stripping_df[
-        ["Abisolierungs-Einzeldefektflaeche_max", "Abisolierungs-Gesamtdefektflaeche"]
+        ["Abisolierungs-Einzeldefektflaeche_max",
+            "Abisolierungs-Gesamtdefektflaeche"]
     ] = stripping_df[
-        ["Abisolierungs-Einzeldefektflaeche_max", "Abisolierungs-Gesamtdefektflaeche"]
+        ["Abisolierungs-Einzeldefektflaeche_max",
+            "Abisolierungs-Gesamtdefektflaeche"]
     ].round(
         2
     )
@@ -35,11 +37,6 @@ dataframe_tab, graph_tab = st.tabs(["Dataframe", "Graph"])
 with dataframe_tab:
     if stripping_df is not None:
         table = st.dataframe(stripping_df)
-
-with graph_tab:
-    # Generate the HTML using Pygwalker
-    pyg_html = pyg.walk(stripping_df, return_html=True)
-    components.html(pyg_html, height=1000, scrolling=True)
 
 cluster_button = st.button(
     "Cluster",
@@ -60,6 +57,11 @@ if cluster_button and stripping_df is not None:
     )
     stripping_df["Label"] = kmeans.labels_
     table.dataframe(stripping_df)
+
+with graph_tab:
+    # Generate the HTML using Pygwalker
+    pyg_html = pyg.walk(stripping_df, return_html=True)
+    components.html(pyg_html, height=1000, scrolling=True)
 
 corr_button = st.button(
     "Correlation Analysis",
