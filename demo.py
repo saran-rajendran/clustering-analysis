@@ -1,3 +1,4 @@
+import glob
 import pandas as pd
 import streamlit as st
 import pygwalker as pyg
@@ -15,18 +16,26 @@ st.title("Data Analysis: Demo")
 
 st.header("Clustering")
 
-stripping_df = None
+# stripping_df = None
 
-csv_data = st.file_uploader("Upload Raw data file for stripping", type="csv")
+csv_data = st.file_uploader(
+    "Upload Raw data file for stripping", type="csv", accept_multiple_files=True)
+
+df = pd.DataFrame()
 
 if csv_data is not None:
-    stripping_df = pd.read_csv(csv_data, sep=";")
+    if isinstance(csv_data, list):
+        for file in csv_data:
+            x = pd.read_csv(csv_data, sep=";")
+            stripping_df = pd.concat([df, x], axis=0)
+    else:
+        stripping_df = pd.read_csv(csv_data, sep=";")
     # cols = stripping_df.select_dtypes(include=["float64"]).columns
     stripping_df[
-        ["Abisolierungs-Einzeldefektflaeche_max",
+        ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max", "Abisolierungs-Einzeldefektflaeche_max",
             "Abisolierungs-Gesamtdefektflaeche"]
     ] = stripping_df[
-        ["Abisolierungs-Einzeldefektflaeche_max",
+        ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max", "Abisolierungs-Einzeldefektflaeche_max",
             "Abisolierungs-Gesamtdefektflaeche"]
     ].round(
         2
@@ -49,10 +58,10 @@ if cluster_button and stripping_df is not None:
     kmeans = KMeans(n_clusters=5, random_state=0)
     kmeans.fit(
         stripping_df[
-            [
+            ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max",
                 "Abisolierungs-Einzeldefektflaeche_max",
                 "Abisolierungs-Gesamtdefektflaeche",
-            ]
+             ]
         ].fillna(0)
     )
     stripping_df["Label"] = kmeans.labels_
