@@ -24,7 +24,9 @@ stripping_df = pd.DataFrame()
 if csv_data is not None:
     if isinstance(csv_data, list):
         for file in csv_data:
+            mach_no = file.name.split('_')[-2]
             x = pd.read_csv(file, sep=";")
+            x['Machine_Number'] = mach_no
             if (not stripping_df.empty) and all(x.columns == stripping_df.columns):
                 stripping_df = pd.concat([stripping_df, x], axis=0)
             elif stripping_df.empty:
@@ -33,7 +35,7 @@ if csv_data is not None:
         stripping_df = pd.read_csv(csv_data, sep=";")
 
     stripping_df = stripping_df.reset_index()
-    print(stripping_df.columns)
+    # print(stripping_df.columns)
     # cols = stripping_df.select_dtypes(include=["float64"]).columns
     stripping_df[
         ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max", "Abisolierungs-Einzeldefektflaeche_max",
@@ -51,6 +53,10 @@ dataframe_tab, graph_tab, cluster_tab = st.tabs(
 with dataframe_tab:
     if stripping_df is not None:
         table = st.dataframe(stripping_df)
+        st.write(stripping_df[['Machine_Number', 'Arbeitsfolge', 'Min_Differenz_Abisolierposition', 'Max_Differenz_Abisolierposition',
+                               'Min_Differenz_Abisolierlaenge_max', 'Max_Differenz_Abisolierlaenge_max',
+                               'Min_Abisolierungs-Einzeldefektflaeche_max', 'Max_Abisolierungs-Einzeldefektflaeche_max',
+                               'Min_Abisolierungs-Gesamtdefektflaeche', 'Max_Abisolierungs-Gesamtdefektflaeche']].drop_duplicates())
 
 # cluster_button = st.button(
 #     "Cluster",
