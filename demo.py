@@ -1,7 +1,9 @@
 import glob
+import numpy as np
 import pandas as pd
 import streamlit as st
 import pygwalker as pyg
+import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 import streamlit.components.v1 as components
 
@@ -66,8 +68,8 @@ if csv_data is not None:
     )
 
 
-dataframe_tab, graph_tab, cluster_tab = st.tabs(
-    ["Dataframe", "Graph", "Clustering"])
+dataframe_tab, graph_tab, cluster_tab, visualize_tab = st.tabs(
+    ["Dataframe", "Graph", "Clustering", "Visualization"])
 
 with dataframe_tab:
     if stripping_df is not None:
@@ -112,9 +114,9 @@ with cluster_tab:
         type="primary",
     )
     if cluster_button and stripping_df is not None:
-        cols = ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max",
-                "Abisolierungs-Einzeldefektflaeche_max",
-                "Abisolierungs-Gesamtdefektflaeche",
+        cols = ["Differenz_Abisolierposition_norm", "Differenz_Abisolierlaenge_max_norm",
+                "Abisolierungs-Einzeldefektflaeche_max_norm",
+                "Abisolierungs-Gesamtdefektflaeche_norm",
                 ]
         kmeans = KMeans(n_clusters=k, random_state=0)
         kmeans.fit(
@@ -131,7 +133,7 @@ with cluster_tab:
         labels = ['Critical', 'Very Bad', "Bad", "Good", "Very Good"]
         for row in counter_df.iterrows():
             cluster_qlty[row[0]] = (row[1]['Pass'] + 1) / \
-                (row[1].sum() - row[1]['Pass'])
+                (row[1].sum() - row[1]['Pass'] + 1)
         cluster_qlty_df = pd.DataFrame({f"{l}_{k[0]}": k[1] for l, k in zip(
             labels, sorted(cluster_qlty.items(), key=lambda item: item[1]))}, index=[0])
         table_cluster.dataframe(stripping_df)
@@ -142,6 +144,54 @@ with cluster_tab:
         st.write(counter_df)
         st.write("Cluster Labels: ")
         st.write(cluster_qlty_df)
+
+with visualize_tab:
+    categories = ['Differenz_Abisolierposition_norm', 'Differenz_Abisolierlaenge_max_norm',
+                  'Abisolierungs-Einzeldefektflaeche_max_norm', 'Abisolierungs-Gesamtdefektflaeche']
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatterpolar(
+        r=[0, 0, 0, 0],
+        theta=categories,
+        fill='toself',
+        name='Min Values'
+    ))
+    fig.add_trace(go.Scatterpolar(
+        r=[1, 1, 1, 1],
+        theta=categories,
+        fill='toself',
+        name='Max Values'
+    ))
+    fig.add_trace(go.Scatterpolar(
+        r=[0.5, 0.5, 0, 0],
+        theta=categories,
+        fill='toself',
+        name='Target Values'
+    ))
+
+    for i, cent in enumerate(cluster_centers):
+        fig.add_trace(go.Scatterpolar(
+            r=cent,
+            theta=categories,
+            mode='lines+markers',
+            name=f'Cluster_{i} Center'
+        ))
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[np.min(cluster_centers), np.max(cluster_centers)]
+            )),
+        showlegend=True
+    )
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        sharing="streamlit",
+        theme="streamlit",
+    )
 
 corr_button = st.button(
     "Correlation Analysis",
