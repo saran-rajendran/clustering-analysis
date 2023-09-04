@@ -49,11 +49,11 @@ if csv_data is not None:
             lambda x: abs(x[b] - x[c]), axis=1).idxmin()][c]
         stripping_df[f"{b}_new"] = min_val
         stripping_df[f"{c}_new"] = max_val
-        stripping_df[f"Target_{a}"] = 0.5 * (max_val + min_val) if i < 2 else 0
+        stripping_df[f"Target_{a}"] = 0.5 if i < 2 else 0
         stripping_df[f"{a}_norm"] = (
             stripping_df[a] - min_val) / (max_val - min_val)
-        stripping_df[f"Target_{a}_norm"] = (
-            stripping_df[f"Target_{a}"] - min_val) / (max_val - min_val)
+        # stripping_df[f"Target_{a}_norm"] = (
+        #     stripping_df[f"Target_{a}"] - min_val) / (max_val - min_val)
 
     stripping_df[
         ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max", "Abisolierungs-Einzeldefektflaeche_max",
