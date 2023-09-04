@@ -34,9 +34,27 @@ if csv_data is not None:
     else:
         stripping_df = pd.read_csv(csv_data, sep=";")
 
-    stripping_df = stripping_df.reset_index()
-    # print(stripping_df.columns)
-    # cols = stripping_df.select_dtypes(include=["float64"]).columns
+    stripping_df = stripping_df.reset_index(drop=True)
+    cols = [('Differenz_Abisolierposition', 'Min_Differenz_Abisolierposition', 'Max_Differenz_Abisolierposition'),
+            ('Differenz_Abisolierlaenge_max', 'Min_Differenz_Abisolierlaenge_max',
+             'Max_Differenz_Abisolierlaenge_max'),
+            ('Abisolierungs-Einzeldefektflaeche_max', 'Min_Abisolierungs-Einzeldefektflaeche_max',
+             'Max_Abisolierungs-Einzeldefektflaeche_max'),
+            ('Abisolierungs-Gesamtdefektflaeche', 'Min_Abisolierungs-Gesamtdefektflaeche', 'Max_Abisolierungs-Gesamtdefektflaeche')]
+
+    for i, (a, b, c) in enumerate(cols):
+        min_val = stripping_df.iloc[stripping_df.apply(
+            lambda x: abs(x[b] - x[c]), axis=1).idxmin()][b]
+        max_val = stripping_df.iloc[stripping_df.apply(
+            lambda x: abs(x[b] - x[c]), axis=1).idxmin()][c]
+        stripping_df[f"{b}_new"] = min_val
+        stripping_df[f"{c}_new"] = max_val
+        stripping_df[f"Target_{a}"] = 0.5 * (max_val + min_val) if i < 2 else 0
+        stripping_df[f"{a}_norm"] = (
+            stripping_df[a] - min_val) / (max_val - min_val)
+        stripping_df[f"Target_{a}_norm"] = (
+            stripping_df[f"Target_{a}"] - min_val) / (max_val - min_val)
+
     stripping_df[
         ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max", "Abisolierungs-Einzeldefektflaeche_max",
             "Abisolierungs-Gesamtdefektflaeche"]
@@ -46,6 +64,7 @@ if csv_data is not None:
     ].round(
         2
     )
+
 
 dataframe_tab, graph_tab, cluster_tab = st.tabs(
     ["Dataframe", "Graph", "Clustering"])
