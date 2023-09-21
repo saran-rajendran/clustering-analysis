@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 import pygwalker as pyg
 import plotly.graph_objects as go
+import plotly.express as px
 from sklearn.cluster import KMeans
 import streamlit.components.v1 as components
 
@@ -146,46 +147,112 @@ with cluster_tab:
         st.write(cluster_qlty_df)
 
 with visualize_tab:
-    categories = ['Differenz_Abisolierposition_norm', 'Differenz_Abisolierlaenge_max_norm',
-                  'Abisolierungs-Einzeldefektflaeche_max_norm', 'Abisolierungs-Gesamtdefektflaeche']
+    # categories = ['Differenz_Abisolierposition_norm', 'Differenz_Abisolierlaenge_max_norm',
+    #               'Abisolierungs-Einzeldefektflaeche_max_norm', 'Abisolierungs-Gesamtdefektflaeche']
 
-    fig = go.Figure()
+    # fig = go.Figure()
 
-    fig.add_trace(go.Scatterpolar(
-        r=[0, 0, 0, 0],
-        theta=categories,
-        fill='toself',
-        name='Min Values'
-    ))
-    fig.add_trace(go.Scatterpolar(
-        r=[1, 1, 1, 1],
-        theta=categories,
-        fill='toself',
-        name='Max Values'
-    ))
-    fig.add_trace(go.Scatterpolar(
-        r=[0.5, 0.5, 0, 0],
-        theta=categories,
-        fill='toself',
-        name='Target Values'
-    ))
+    # fig.add_trace(go.Scatterpolar(
+    #     r=[0, 0, 0, 0],
+    #     theta=categories,
+    #     fill='toself',
+    #     name='Min Values'
+    # ))
+    # fig.add_trace(go.Scatterpolar(
+    #     r=[1, 1, 1, 1],
+    #     theta=categories,
+    #     fill='toself',
+    #     name='Max Values'
+    # ))
+    # fig.add_trace(go.Scatterpolar(
+    #     r=[0.5, 0.5, 0, 0],
+    #     theta=categories,
+    #     fill='toself',
+    #     name='Target Values'
+    # ))
 
-    for i, cent in enumerate(cluster_centers):
-        fig.add_trace(go.Scatterpolar(
-            r=cent,
-            theta=categories,
-            mode='lines+markers',
-            name=f'Cluster_{i} Center'
-        ))
+    # for i, cent in enumerate(cluster_centers):
+    #     fig.add_trace(go.Scatterpolar(
+    #         r=cent,
+    #         theta=categories,
+    #         mode='lines+markers',
+    #         name=f'Cluster_{i} Center'
+    #     ))
 
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[np.min(cluster_centers), np.max(cluster_centers)]
-            )),
-        showlegend=True
-    )
+    # fig.update_layout(
+    #     polar=dict(
+    #         radialaxis=dict(
+    #             visible=True,
+    #             range=[np.min(cluster_centers), np.max(cluster_centers)]
+    #         )),
+    #     showlegend=True
+    # )
+
+    # Create data
+    features = ['Differenz_Abisolierposition_norm', 'Differenz_Abisolierlaenge_max_norm',
+                'Abisolierungs-Einzeldefektflaeche_max_norm', 'Abisolierungs-Gesamtdefektflaeche']
+    num_clusters = k
+
+    # Create custom values
+    thresholds = {
+        "Differenz_Abisolierposition_norm": {"min": 0, "max": 1, "target": 0.5},
+        "Differenz_Abisolierlaenge_max_norm": {"min": 0, "max": 1, "target": 0.5},
+        "Abisolierungs-Einzeldefektflaeche_max_norm": {"min": 0, "max": 1, "target": 0},
+        "Abisolierungs-Gesamtdefektflaeche": {"min": 0, "max": 1, "target": 0},
+    }
+
+    # Create data for box values
+    box_data = {
+        "Features": [],
+        "Value": [],
+        "Type": []
+    }
+
+    for feature in features:
+        box_data["Features"].append(feature)
+        box_data["Value"].append(thresholds[feature]["min"])
+        box_data["Type"].append("Min")
+
+        box_data["Features"].append(feature)
+        box_data["Value"].append(thresholds[feature]["max"])
+        box_data["Type"].append("Max")
+
+        box_data["Features"].append(feature)
+        box_data["Value"].append(thresholds[feature]["target"])
+        box_data["Type"].append("Target")
+
+    df_box = pd.DataFrame(box_data)
+
+    # Create data for cluster centers
+    cluster_data = {
+        "Features": [],
+        "Value": [],
+        "Cluster": [],
+    }
+    colors = {'Min': 'red', 'Max': 'red', 'Target': 'green'}
+
+    for i, feature in enumerate(features):
+        for cluster_num in range(num_clusters):
+            cluster_data["Features"].append(feature)
+            cluster_data["Value"].append(cluster_centers[cluster_num][i])
+            cluster_data["Cluster"].append(f"Cluster {cluster_num}")
+
+    df_cluster = pd.DataFrame(cluster_data)
+
+    # Create figure
+    fig = px.scatter(df_cluster, x="Features", y="Value",
+                     color="Cluster", title="Customized Box Plots")
+    fig.update_traces(marker=dict(size=8))
+
+    # Add box traces for min, max, mean
+    box_types = ["Min", "Max", "Target"]
+
+    for box_type in box_types:
+        df_filtered = df_box[df_box["Type"] == box_type]
+        fig.add_trace(px.box(df_filtered, x="Features",
+                             y="Value", color="Type", color_discrete_map=colors, points=False).data[0])
+
+    fig.update_xaxes(categoryorder="array", categoryarray=features)
     st.plotly_chart(
         fig,
         use_container_width=True,
