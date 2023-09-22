@@ -1,9 +1,7 @@
-import glob
 import numpy as np
 import pandas as pd
 import streamlit as st
 import pygwalker as pyg
-import plotly.graph_objects as go
 import plotly.express as px
 from sklearn.cluster import KMeans
 import streamlit.components.v1 as components
@@ -38,25 +36,6 @@ if csv_data is not None:
         stripping_df = pd.read_csv(csv_data, sep=";")
 
     stripping_df = stripping_df.reset_index(drop=True)
-    cols = [('Differenz_Abisolierposition', 'Min_Differenz_Abisolierposition', 'Max_Differenz_Abisolierposition'),
-            ('Differenz_Abisolierlaenge_max', 'Min_Differenz_Abisolierlaenge_max',
-             'Max_Differenz_Abisolierlaenge_max'),
-            ('Abisolierungs-Einzeldefektflaeche_max', 'Min_Abisolierungs-Einzeldefektflaeche_max',
-             'Max_Abisolierungs-Einzeldefektflaeche_max'),
-            ('Abisolierungs-Gesamtdefektflaeche', 'Min_Abisolierungs-Gesamtdefektflaeche', 'Max_Abisolierungs-Gesamtdefektflaeche')]
-
-    for i, (a, b, c) in enumerate(cols):
-        min_val = stripping_df.iloc[stripping_df.apply(
-            lambda x: abs(x[b] - x[c]), axis=1).idxmin()][b]
-        max_val = stripping_df.iloc[stripping_df.apply(
-            lambda x: abs(x[b] - x[c]), axis=1).idxmin()][c]
-        stripping_df[f"{b}_new"] = min_val
-        stripping_df[f"{c}_new"] = max_val
-        stripping_df[f"Target_{a}"] = 0.5 if i < 2 else 0
-        stripping_df[f"{a}_norm"] = (
-            stripping_df[a] - min_val) / (max_val - min_val)
-        # stripping_df[f"Target_{a}_norm"] = (
-        #     stripping_df[f"Target_{a}"] - min_val) / (max_val - min_val)
 
     stripping_df[
         ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max", "Abisolierungs-Einzeldefektflaeche_max",
@@ -80,26 +59,6 @@ with dataframe_tab:
                                'Min_Abisolierungs-Einzeldefektflaeche_max', 'Max_Abisolierungs-Einzeldefektflaeche_max',
                                'Min_Abisolierungs-Gesamtdefektflaeche', 'Max_Abisolierungs-Gesamtdefektflaeche']].drop_duplicates())
 
-# cluster_button = st.button(
-#     "Cluster",
-#     key="cluster_button",
-#     use_container_width=True,
-#     type="primary",
-# )
-
-# if cluster_button and stripping_df is not None:
-#     kmeans = KMeans(n_clusters=5, random_state=0)
-#     kmeans.fit(
-#         stripping_df[
-#             ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max",
-#                 "Abisolierungs-Einzeldefektflaeche_max",
-#                 "Abisolierungs-Gesamtdefektflaeche",
-#              ]
-#         ].fillna(0)
-#     )
-#     stripping_df["Label"] = kmeans.labels_
-#     table.dataframe(stripping_df)
-
 with graph_tab:
     # Generate the HTML using Pygwalker
     pyg_html = pyg.walk(stripping_df, return_html=True)
@@ -108,6 +67,16 @@ with graph_tab:
 with cluster_tab:
     table_cluster = st.dataframe(stripping_df)
     k = st.number_input('Number of Clusters', value=5, key='k')
+    context = st.selectbox('Normalization Context', ('Strict', 'Wide'))
+    st.write('You selected:', context)
+
+    cols = [('Differenz_Abisolierposition', 'Min_Differenz_Abisolierposition', 'Max_Differenz_Abisolierposition'),
+            ('Differenz_Abisolierlaenge_max', 'Min_Differenz_Abisolierlaenge_max',
+             'Max_Differenz_Abisolierlaenge_max'),
+            ('Abisolierungs-Einzeldefektflaeche_max', 'Min_Abisolierungs-Einzeldefektflaeche_max',
+             'Max_Abisolierungs-Einzeldefektflaeche_max'),
+            ('Abisolierungs-Gesamtdefektflaeche', 'Min_Abisolierungs-Gesamtdefektflaeche', 'Max_Abisolierungs-Gesamtdefektflaeche')]
+
     cluster_button = st.button(
         "Cluster",
         key="cluster_button",
@@ -115,6 +84,29 @@ with cluster_tab:
         type="primary",
     )
     if cluster_button and stripping_df is not None:
+        if context == 'Strict':
+            for i, (a, b, c) in enumerate(cols):
+                low_val = stripping_df.iloc[stripping_df.apply(
+                    lambda x: abs(x[b] - x[c]), axis=1).idxmin()][b]
+                up_val = stripping_df.iloc[stripping_df.apply(
+                    lambda x: abs(x[b] - x[c]), axis=1).idxmin()][c]
+                stripping_df[f"{b}_new"] = low_val
+                stripping_df[f"{c}_new"] = up_val
+                stripping_df[f"Target_{a}"] = 0.5 if i < 2 else 0
+                stripping_df[f"{a}_norm"] = (
+                    stripping_df[a] - low_val) / (up_val - low_val)
+        elif context == 'Wide':
+            for i, (a, b, c) in enumerate(cols):
+                low_val = stripping_df.iloc[stripping_df.apply(
+                    lambda x: x[b] - x[c], axis=1).idxmin()][b]
+                up_val = stripping_df.iloc[stripping_df.apply(
+                    lambda x: x[b] - x[c], axis=1).idxmax()][c]
+                stripping_df[f"{b}_new"] = low_val
+                stripping_df[f"{c}_new"] = up_val
+                stripping_df[f"Target_{a}"] = 0.5 if i < 2 else 0
+                stripping_df[f"{a}_norm"] = (
+                    stripping_df[a] - low_val) / (up_val - low_val)
+
         cols = ["Differenz_Abisolierposition_norm", "Differenz_Abisolierlaenge_max_norm",
                 "Abisolierungs-Einzeldefektflaeche_max_norm",
                 "Abisolierungs-Gesamtdefektflaeche_norm",
@@ -147,47 +139,6 @@ with cluster_tab:
         st.write(cluster_qlty_df)
 
 with visualize_tab:
-    # categories = ['Differenz_Abisolierposition_norm', 'Differenz_Abisolierlaenge_max_norm',
-    #               'Abisolierungs-Einzeldefektflaeche_max_norm', 'Abisolierungs-Gesamtdefektflaeche']
-
-    # fig = go.Figure()
-
-    # fig.add_trace(go.Scatterpolar(
-    #     r=[0, 0, 0, 0],
-    #     theta=categories,
-    #     fill='toself',
-    #     name='Min Values'
-    # ))
-    # fig.add_trace(go.Scatterpolar(
-    #     r=[1, 1, 1, 1],
-    #     theta=categories,
-    #     fill='toself',
-    #     name='Max Values'
-    # ))
-    # fig.add_trace(go.Scatterpolar(
-    #     r=[0.5, 0.5, 0, 0],
-    #     theta=categories,
-    #     fill='toself',
-    #     name='Target Values'
-    # ))
-
-    # for i, cent in enumerate(cluster_centers):
-    #     fig.add_trace(go.Scatterpolar(
-    #         r=cent,
-    #         theta=categories,
-    #         mode='lines+markers',
-    #         name=f'Cluster_{i} Center'
-    #     ))
-
-    # fig.update_layout(
-    #     polar=dict(
-    #         radialaxis=dict(
-    #             visible=True,
-    #             range=[np.min(cluster_centers), np.max(cluster_centers)]
-    #         )),
-    #     showlegend=True
-    # )
-
     # Create data
     features = ['Differenz_Abisolierposition_norm', 'Differenz_Abisolierlaenge_max_norm',
                 'Abisolierungs-Einzeldefektflaeche_max_norm', 'Abisolierungs-Gesamtdefektflaeche']
