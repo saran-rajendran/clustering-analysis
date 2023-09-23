@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 import pygwalker as pyg
 import plotly.express as px
+import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 import streamlit.components.v1 as components
 
@@ -129,6 +130,31 @@ with cluster_tab:
                 (row[1].sum() - row[1]['Pass'] + 1)
         cluster_qlty_df = pd.DataFrame({f"{l}_{k[0]}": k[1] for l, k in zip(
             labels, sorted(cluster_qlty.items(), key=lambda item: item[1]))}, index=[0])
+
+        thresholds = {
+            "Differenz_Abisolierposition_norm": {"min": 0, "max": 1, "target": 0.5},
+            "Differenz_Abisolierlaenge_max_norm": {"min": 0, "max": 1, "target": 0.5},
+            "Abisolierungs-Einzeldefektflaeche_max_norm": {"min": 0, "max": 1, "target": 0},
+            "Abisolierungs-Gesamtdefektflaeche_norm": {"min": 0, "max": 1, "target": 0},
+        }
+
+        meta_data = {}
+        for i, cluster in enumerate(cluster_centers):
+            temp = {}
+            for j, feature_center in enumerate(cluster):
+                temp[cols[j]] = {}
+                temp[cols[j]]['within limit'] = thresholds[cols[j]
+                                                           ]['min'] <= feature_center <= thresholds[cols[j]]['max']
+                temp[cols[j]]['distance from target'] = abs(
+                    thresholds[cols[j]]['target'] - feature_center)
+                temp[cols[j]]['distance from min threshold'] = abs(
+                    thresholds[cols[j]]['min'] - feature_center)
+                temp[cols[j]]['distance from max threshold'] = abs(
+                    thresholds[cols[j]]['max'] - feature_center)
+            meta_data[i] = temp
+        meta_data_df = pd.DataFrame.from_dict({(i, j): meta_data[i][j] for i in meta_data.keys(
+        ) for j in meta_data[i].keys()}).T.reset_index().rename(columns={'level_0': 'Cluster', 'level_1': 'Feature'}).set_index('Cluster')
+
         table_cluster.dataframe(stripping_df)
         st.write(f"Features used for Clustering: {cols}")
         st.write("Cluster Centers: ")
@@ -141,16 +167,8 @@ with cluster_tab:
 with visualize_tab:
     # Create data
     features = ['Differenz_Abisolierposition_norm', 'Differenz_Abisolierlaenge_max_norm',
-                'Abisolierungs-Einzeldefektflaeche_max_norm', 'Abisolierungs-Gesamtdefektflaeche']
+                'Abisolierungs-Einzeldefektflaeche_max_norm', 'Abisolierungs-Gesamtdefektflaeche_norm']
     num_clusters = k
-
-    # Create custom values
-    thresholds = {
-        "Differenz_Abisolierposition_norm": {"min": 0, "max": 1, "target": 0.5},
-        "Differenz_Abisolierlaenge_max_norm": {"min": 0, "max": 1, "target": 0.5},
-        "Abisolierungs-Einzeldefektflaeche_max_norm": {"min": 0, "max": 1, "target": 0},
-        "Abisolierungs-Gesamtdefektflaeche": {"min": 0, "max": 1, "target": 0},
-    }
 
     # Create data for box values
     box_data = {
@@ -191,8 +209,8 @@ with visualize_tab:
     df_cluster = pd.DataFrame(cluster_data)
 
     # Create figure
-    fig = px.scatter(df_cluster, x="Features", y="Value",
-                     color="Cluster", title="Customized Box Plots")
+    fig = px.strip(df_cluster, x="Features", y="Value",
+                   color="Cluster", title="Customized Box Plots", stripmode='overlay')
     fig.update_traces(marker=dict(size=8))
 
     # Add box traces for min, max, mean
@@ -202,14 +220,16 @@ with visualize_tab:
         df_filtered = df_box[df_box["Type"] == box_type]
         fig.add_trace(px.box(df_filtered, x="Features",
                              y="Value", color="Type", color_discrete_map=colors, points=False).data[0])
-
     fig.update_xaxes(categoryorder="array", categoryarray=features)
+
     st.plotly_chart(
         fig,
         use_container_width=True,
         sharing="streamlit",
         theme="streamlit",
     )
+    st.write('Meta Data: ')
+    st.write(meta_data_df)
 
 corr_button = st.button(
     "Correlation Analysis",
