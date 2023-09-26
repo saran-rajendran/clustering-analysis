@@ -3,9 +3,10 @@ import pandas as pd
 import streamlit as st
 import pygwalker as pyg
 import plotly.express as px
-import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 import streamlit.components.v1 as components
+
+import config
 
 st.set_page_config(
     page_title="Data Analysis: Demo",
@@ -38,30 +39,36 @@ if csv_data is not None:
 
     stripping_df = stripping_df.reset_index(drop=True)
 
-    stripping_df[
-        ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max", "Abisolierungs-Einzeldefektflaeche_max",
-            "Abisolierungs-Gesamtdefektflaeche"]
-    ] = stripping_df[
-        ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max", "Abisolierungs-Einzeldefektflaeche_max",
-            "Abisolierungs-Gesamtdefektflaeche"]
-    ].round(
-        2
-    )
-
-
 dataframe_tab, graph_tab, cluster_tab, visualize_tab = st.tabs(
     ["Dataframe", "Graph", "Clustering", "Visualization"])
 
 with dataframe_tab:
-    if stripping_df is not None:
+    if not stripping_df.empty:
+        features = list(config.features_with_threshold.keys())
+        selected_features = {
+            feature: True if feature in config.default_features else False for feature in features}
+
+        select_all = st.checkbox("Select All")
+        if select_all:
+            selected_features = {option: True for option in features}
+
+        selected_features.update({feature: st.checkbox(
+            feature, value=selected_features[feature]) for feature in features})
+
+        select_feats = [k for k, v in selected_features.items() if v is True]
+        stripping_df[
+            select_feats
+        ] = stripping_df[
+            select_feats
+        ].round(2)
         table = st.dataframe(stripping_df)
-        st.write(stripping_df[['Machine_Number', 'Arbeitsfolge', 'Min_Differenz_Abisolierposition', 'Max_Differenz_Abisolierposition',
-                               'Min_Differenz_Abisolierlaenge_max', 'Max_Differenz_Abisolierlaenge_max',
-                               'Min_Abisolierungs-Einzeldefektflaeche_max', 'Max_Abisolierungs-Einzeldefektflaeche_max',
-                               'Min_Abisolierungs-Gesamtdefektflaeche', 'Max_Abisolierungs-Gesamtdefektflaeche']].drop_duplicates())
+
+        cols = ['Machine_Number', 'Arbeitsfolge']
+        for feat in select_feats:
+            cols.extend(config.features_with_threshold[feat][1:])
+        st.write(stripping_df[cols].drop_duplicates())
 
 with graph_tab:
-    # Generate the HTML using Pygwalker
     pyg_html = pyg.walk(stripping_df, return_html=True)
     components.html(pyg_html, height=1000, scrolling=True)
 
@@ -71,12 +78,9 @@ with cluster_tab:
     context = st.selectbox('Normalization Context', ('Strict', 'Wide'))
     st.write('You selected:', context)
 
-    cols = [('Differenz_Abisolierposition', 'Min_Differenz_Abisolierposition', 'Max_Differenz_Abisolierposition'),
-            ('Differenz_Abisolierlaenge_max', 'Min_Differenz_Abisolierlaenge_max',
-             'Max_Differenz_Abisolierlaenge_max'),
-            ('Abisolierungs-Einzeldefektflaeche_max', 'Min_Abisolierungs-Einzeldefektflaeche_max',
-             'Max_Abisolierungs-Einzeldefektflaeche_max'),
-            ('Abisolierungs-Gesamtdefektflaeche', 'Min_Abisolierungs-Gesamtdefektflaeche', 'Max_Abisolierungs-Gesamtdefektflaeche')]
+    cols = []
+    for feat in select_feats:
+        cols.append(tuple(config.features_with_threshold[feat]))
 
     cluster_button = st.button(
         "Cluster",
@@ -108,10 +112,10 @@ with cluster_tab:
                 stripping_df[f"{a}_norm"] = (
                     stripping_df[a] - low_val) / (up_val - low_val)
 
-        cols = ["Differenz_Abisolierposition_norm", "Differenz_Abisolierlaenge_max_norm",
-                "Abisolierungs-Einzeldefektflaeche_max_norm",
-                "Abisolierungs-Gesamtdefektflaeche_norm",
-                ]
+        cols = []
+        for feat in select_feats:
+            cols.append(f'{feat}_norm')
+
         kmeans = KMeans(n_clusters=k, random_state=0)
         kmeans.fit(
             stripping_df[cols].fillna(0)
@@ -131,14 +135,8 @@ with cluster_tab:
         cluster_qlty_df = pd.DataFrame({f"{l}_{k[0]}": k[1] for l, k in zip(
             labels, sorted(cluster_qlty.items(), key=lambda item: item[1]))}, index=[0])
 
-        thresholds = {
-            "Differenz_Abisolierposition_norm": {"min": 0, "max": 1, "target": 0.5},
-            "Differenz_Abisolierlaenge_max_norm": {"min": 0, "max": 1, "target": 0.5},
-            "Abisolierungs-Einzeldefektflaeche_max_norm": {"min": 0, "max": 1, "target": 0},
-            "Abisolierungs-Gesamtdefektflaeche_norm": {"min": 0, "max": 1, "target": 0},
-        }
-
         meta_data = {}
+        thresholds = config.thresholds
         for i, cluster in enumerate(cluster_centers):
             temp = {}
             for j, feature_center in enumerate(cluster):
@@ -165,12 +163,9 @@ with cluster_tab:
         st.write(cluster_qlty_df)
 
 with visualize_tab:
-    # Create data
-    features = ['Differenz_Abisolierposition_norm', 'Differenz_Abisolierlaenge_max_norm',
-                'Abisolierungs-Einzeldefektflaeche_max_norm', 'Abisolierungs-Gesamtdefektflaeche_norm']
+    features = cols
     num_clusters = k
 
-    # Create data for box values
     box_data = {
         "Features": [],
         "Value": [],
@@ -192,7 +187,6 @@ with visualize_tab:
 
     df_box = pd.DataFrame(box_data)
 
-    # Create data for cluster centers
     cluster_data = {
         "Features": [],
         "Value": [],
@@ -208,12 +202,10 @@ with visualize_tab:
 
     df_cluster = pd.DataFrame(cluster_data)
 
-    # Create figure
     fig = px.strip(df_cluster, x="Features", y="Value",
                    color="Cluster", title="Customized Box Plots", stripmode='overlay')
     fig.update_traces(marker=dict(size=8))
 
-    # Add box traces for min, max, mean
     box_types = ["Min", "Max", "Target"]
 
     for box_type in box_types:
@@ -230,24 +222,3 @@ with visualize_tab:
     )
     st.write('Meta Data: ')
     st.write(meta_data_df)
-
-corr_button = st.button(
-    "Correlation Analysis",
-    key="corr_button",
-    use_container_width=True,
-    type="primary",
-)
-
-if corr_button and stripping_df is not None:
-    corr_df = stripping_df.corr()
-    st.write(corr_df)
-
-database_upload_button = st.button(
-    "Upload the data to Neo4j",
-    key="upload_button",
-    use_container_width=True,
-    type="primary",
-)
-
-if database_upload_button:
-    st.info("This is where the data would be uploaded to Neo4j")
