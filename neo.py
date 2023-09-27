@@ -72,8 +72,8 @@ def upload_to_neo4j(df):
             feature_node = FeatureNode(
                 name=feature,
                 value=row[config.features_with_threshold[feature][0]],
-                upper=row[config.features_with_threshold[feature][1]],
-                lower=row[config.features_with_threshold[feature][2]]
+                lower=row[config.features_with_threshold[feature][1]],
+                upper=row[config.features_with_threshold[feature][2]]
             )
             feature_node.create()
             feature_nodes.append(feature_node)
