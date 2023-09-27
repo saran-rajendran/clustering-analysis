@@ -1,3 +1,7 @@
+NEO4J_URI = "bolt://localhost:7687"
+NEO4J_USERNAME = "neo4j"
+NEO4J_PASSWORD = "abcd1234"
+
 default_features = ["Differenz_Abisolierposition", "Differenz_Abisolierlaenge_max", "Abisolierungs-Einzeldefektflaeche_max",
                     "Abisolierungs-Gesamtdefektflaeche"]
 

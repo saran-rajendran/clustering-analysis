@@ -7,6 +7,7 @@ from sklearn.cluster import KMeans
 import streamlit.components.v1 as components
 
 import config
+from neo import upload_to_neo4j
 
 st.set_page_config(
     page_title="Data Analysis: Demo",
@@ -39,8 +40,8 @@ if csv_data is not None:
 
     stripping_df = stripping_df.reset_index(drop=True)
 
-dataframe_tab, graph_tab, cluster_tab, visualize_tab = st.tabs(
-    ["Dataframe", "Graph", "Clustering", "Visualization"])
+dataframe_tab, graph_tab, cluster_tab, visualize_tab, upload_tab = st.tabs(
+    ["Dataframe", "Graph", "Clustering", "Visualization", "Upload"])
 
 with dataframe_tab:
     if not stripping_df.empty:
@@ -154,6 +155,7 @@ with cluster_tab:
         ) for j in meta_data[i].keys()}).T.reset_index().rename(columns={'level_0': 'Cluster', 'level_1': 'Feature'}).set_index('Cluster')
 
         table_cluster.dataframe(stripping_df)
+
         st.write(f"Features used for Clustering: {cols}")
         st.write("Cluster Centers: ")
         st.write(pd.DataFrame(cluster_centers))
@@ -172,7 +174,8 @@ with visualize_tab:
         "Type": []
     }
 
-    for feature in features:
+    for feature in select_feats:
+        feature = f'{feature}_norm'
         box_data["Features"].append(feature)
         box_data["Value"].append(thresholds[feature]["min"])
         box_data["Type"].append("Min")
@@ -194,7 +197,8 @@ with visualize_tab:
     }
     colors = {'Min': 'red', 'Max': 'red', 'Target': 'green'}
 
-    for i, feature in enumerate(features):
+    for i, feature in enumerate(select_feats):
+        feature = f'{feature}_norm'
         for cluster_num in range(num_clusters):
             cluster_data["Features"].append(feature)
             cluster_data["Value"].append(cluster_centers[cluster_num][i])
@@ -222,3 +226,8 @@ with visualize_tab:
     )
     st.write('Meta Data: ')
     st.write(meta_data_df)
+
+with upload_tab:
+    if cluster_button and stripping_df is not None:
+        upload_to_neo4j(stripping_df.iloc[:10, :])
+        st.write('Data Uploaded to Neo4j database successfully')
